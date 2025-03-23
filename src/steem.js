@@ -590,10 +590,38 @@ const checkRpcSync = async () => {
     return medianHeight
 }
 
+const getNetworkMedianHeight = () => {
+    const now = Date.now()
+    const heights = []
+    
+    // Clean up expired entries and collect valid heights
+    for (const [nodeId, data] of networkSteemHeights.entries()) {
+        if (now - data.timestamp > STEEM_HEIGHT_EXPIRY) {
+            networkSteemHeights.delete(nodeId)
+            logr.debug(`Expired node height data for ${nodeId}`)
+        } else {
+            heights.push(data.steemBlock)
+        }
+    }
+
+    // Add our own height
+    if (currentSteemBlock > 0) {
+        heights.push(currentSteemBlock)
+    }
+    
+    if (heights.length === 0) {
+        return null
+    }
+
+    const medianHeight = getMedian(heights)
+    logr.debug(`Network heights - Count: ${heights.length}, Median: ${medianHeight}`)
+    return medianHeight
+}
+
 const updateSteemBlock = async () => {
     try {
-        // Get the median RPC height for sync decisions
-        const medianRpcHeight = await checkRpcSync()
+        // Get the network median height for sync decisions
+        const networkMedianHeight = getNetworkMedianHeight()
         
         // Check network sync status periodically
         const now = Date.now()
@@ -613,21 +641,33 @@ const updateSteemBlock = async () => {
         // Update currentSteemBlock
         currentSteemBlock = Math.max(currentSteemBlock, lastProcessedSteemBlock)
 
-        // Calculate local behind blocks using median RPC height
-        const latestSteemBlock = medianRpcHeight || (await client.database.getDynamicGlobalProperties()).head_block_number
+        // Calculate local behind blocks using network median height
+        // If no network median available, fall back to RPC check
+        const latestSteemBlock = networkMedianHeight || await checkRpcSync() || (await client.database.getDynamicGlobalProperties()).head_block_number
         const localBehindBlocks = Math.max(0, latestSteemBlock - lastProcessedSteemBlock)
         
         // Get network's view of sync status
         const networkStatus = getNetworkSyncStatus()
         
         // Update behindBlocks based on both local and network status
+        const isReferenceMiner = networkStatus.referenceNodeId === 'self'
         if (networkStatus.referenceExists) {
             // Use the maximum of reference node's behind blocks and our local calculation
             behindBlocks = Math.max(networkStatus.referenceBehind, localBehindBlocks)
-            logr.debug(`Behind blocks: ${behindBlocks} (reference: ${networkStatus.referenceNodeId}, local: ${localBehindBlocks}, median RPC height: ${latestSteemBlock}, valid RPCs: ${getValidRpcHeights().length})`)
+            const logMessage = `Behind blocks: ${behindBlocks} (reference: ${networkStatus.referenceNodeId}, local: ${localBehindBlocks}, network median height: ${latestSteemBlock}, nodes: ${networkSteemHeights.size + 1})`
+            if (isReferenceMiner) {
+                logr.debug(minerLog(logMessage))
+            } else {
+                logr.debug(logMessage)
+            }
         } else {
             behindBlocks = localBehindBlocks
-            logr.debug(`Behind blocks: ${behindBlocks} (local calculation, median RPC height: ${latestSteemBlock}, valid RPCs: ${getValidRpcHeights().length})`)
+            const logMessage = `Behind blocks: ${behindBlocks} (local calculation, network median height: ${latestSteemBlock}, nodes: ${networkSteemHeights.size + 1})`
+            if (isReferenceMiner) {
+                logr.debug(minerLog(logMessage))
+            } else {
+                logr.debug(logMessage)
+            }
         }
 
         // Update our sync status in shared state
@@ -644,14 +684,19 @@ const updateSteemBlock = async () => {
             return latestSteemBlock
         }
 
-        // Enter sync mode if we're behind based on the median RPC height
+        // Enter sync mode if we're behind based on the network median height
         const shouldSync = behindBlocks > 0 || 
                          (networkStatus.referenceExists && networkSyncStatus.get(networkStatus.referenceNodeId)?.isSyncing) ||
                          !readyToReceiveTransactions
 
         if (shouldSync) {
             if (!isSyncing) {
-                logr.info(`Entering sync mode: ${behindBlocks} blocks behind (median RPC height: ${latestSteemBlock}, valid RPCs: ${getValidRpcHeights().length})`)
+                const logMessage = `Entering sync mode: ${behindBlocks} blocks behind (network median height: ${latestSteemBlock}, nodes: ${networkSteemHeights.size + 1})`
+                if (isReferenceMiner) {
+                    logr.info(minerLog(logMessage))
+                } else {
+                    logr.info(logMessage)
+                }
                 isSyncing = true
                 lastSyncModeChange = Date.now()
             }
@@ -660,7 +705,12 @@ const updateSteemBlock = async () => {
             (!lastSyncExitTime || Date.now() - lastSyncExitTime > SYNC_EXIT_COOLDOWN * 2) &&
             isNetworkReadyToExitSyncMode()) {
             
-            logr.info(`Exiting sync mode - caught up with median RPC height ${latestSteemBlock} (${behindBlocks} blocks behind, valid RPCs: ${getValidRpcHeights().length})`)
+            const logMessage = `Exiting sync mode - caught up with network median height ${latestSteemBlock} (${behindBlocks} blocks behind, nodes: ${networkSteemHeights.size + 1})`
+            if (isReferenceMiner) {
+                logr.info(minerLog(logMessage))
+            } else {
+                logr.info(logMessage)
+            }
             isSyncing = false
             lastSyncModeChange = Date.now()
             lastSyncExitTime = Date.now()
