@@ -69,6 +69,7 @@ const MAX_PREFETCH_BLOCKS = 10  // Maximum number of blocks to prefetch at once
 const SYNC_THRESHOLD = 5  // Number of blocks behind before entering sync mode
 const SYNC_EXIT_COOLDOWN = 6000 // Increase to 30 seconds cooldown before exiting sync mode
 const SYNC_EXIT_BLOCKS_THRESHOLD = 0 // Must be completely caught up to exit sync mode
+const SYNC_EXIT_THRESHOLD = 1 // Maximum blocks behind to be considered caught up
 
 let consecutiveErrors = 0
 let retryDelay = MIN_RETRY_DELAY
