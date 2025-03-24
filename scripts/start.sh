@@ -44,9 +44,9 @@ export REPLAY_OUTPUT=10000
 #export REBUILD_STATE=1
 #export REBUILD_WRITE_INTERVAL=10000
 #export REBUILD_NO_VALIDATE=1
-export STEEM_API="https://api.steemit.com"
+export STEEM_API="https://api.steemit.com,https://api.futureshock.world,https://steemd.steemworld.org,https://api.justyy.com"
 # default peers to connect with on startup
-export PEERS=
+export PEERS="ws://157.230.212.229:6001,ws://167.99.222.168:6001,ws://159.223.66.172:6001,ws://134.209.156.110:6001,ws://170.64.143.57:6001"
 export MAX_PEERS=20
 
 # your user and keys (only useful for active node owners)
