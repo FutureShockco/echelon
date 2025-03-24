@@ -251,6 +251,20 @@ let chain = {
         })
     },
     validateAndAddBlock: (newBlock, cb, noSync) => {
+        // Check for null or undefined block
+        if (!newBlock) {
+            logr.error('Cannot validate and add null or undefined block')
+            if (cb) cb(false)
+            return
+        }
+
+        // Validate required block properties
+        if (!newBlock._id || typeof newBlock._id !== 'number') {
+            logr.error('Invalid block index in validateAndAddBlock')
+            if (cb) cb(false)
+            return
+        }
+
         // Validate the block
         chain.isValidNewBlock(newBlock, (isValid) => {
             if (!isValid) {
@@ -760,10 +774,28 @@ let chain = {
         })
     },
     isValidNewBlock: (newBlock, cb) => {
+        // Add robust null/undefined check at the beginning
+        if (!newBlock) {
+            chain.lastValidationError = 'block is null or undefined'
+            logr.error('Block validation failed: block is null or undefined')
+            cb(false)
+            return
+        }
+
+        // Check if hash is defined, calculate it if not
+        if (!newBlock.hash) {
+            try {
+                newBlock.hash = chain.calculateHashForBlock(newBlock)
+            } catch (err) {
+                chain.lastValidationError = 'failed to calculate block hash'
+                logr.error('Block validation failed: failed to calculate hash:', err)
+                cb(false)
+                return
+            }
+        }
+
         // If we're starting up, still validating old blocks, rebuilding or recovering, allow all blocks without signature validation
         if (!chain.getLatestBlock() || !chain.getLatestBlock().hash || p2p.recovering || chain.recovering) {
-            if (!newBlock.hash)
-                newBlock.hash = chain.calculateHashForBlock(newBlock)
             chain.lastValidationError = null
             cb(true)
             return
@@ -1045,24 +1077,41 @@ let chain = {
             })
         })
     },
-    calculateHashForBlock: (block, deleteExisting) => {
-        if (config.blockHashSerialization === 1)
-            return chain.calculateHashV1(block._id, block.phash, block.timestamp, block.txs, block.miner, block.missedBy, block.dist, block.burn)
-        else if (config.blockHashSerialization === 2) {
-            let clonedBlock
-            if (deleteExisting) {
-                clonedBlock = cloneDeep(block)
-                delete clonedBlock.hash
-                delete clonedBlock.signature
+    calculateHashForBlock: (block) => {
+        try {
+            if (!block || !block._id) {
+                throw new Error('Cannot calculate hash for invalid block: missing block or block._id')
             }
-            return CryptoJS.SHA256(JSON.stringify(deleteExisting ? clonedBlock : block)).toString()
+            
+            // Make sure required fields exist
+            const blockObj = {
+                _id: block._id || 0,
+                phash: block.phash || '',
+                timestamp: block.timestamp || 0,
+                txs: block.txs || [],
+                miner: block.miner || '',
+                missedBy: block.missedBy || '',
+                steemblock: block.steemblock || 0
+            }
+
+            return chain.calculateHash(
+                blockObj._id,
+                blockObj.phash,
+                blockObj.timestamp,
+                blockObj.txs,
+                blockObj.miner,
+                blockObj.missedBy,
+                blockObj.steemblock
+            )
+        } catch (error) {
+            logr.error('Error calculating block hash:', error)
+            throw error
         }
     },
-    calculateHashV1: (index, phash, timestamp, txs, miner, missedBy, distributed, burned) => {
+    calculateHash: (index, phash, timestamp, txs, miner, missedBy, steemblock) => {
         let string = index + phash + timestamp + txs + miner
         if (missedBy) string += missedBy
-        if (distributed) string += distributed
-        if (burned) string += burned
+        if (steemblock) string += steemblock
 
         return CryptoJS.SHA256(string).toString()
     },

@@ -288,6 +288,13 @@ const processBlock = async (blockNum) => {
             return Promise.resolve(null)
         }
 
+        // Validate that steemBlock is properly structured before processing
+        if (!steemBlock.transactions || !Array.isArray(steemBlock.transactions)) {
+            logr.error(`Invalid Steem block ${blockNum} format: transactions array missing or invalid`)
+            processingBlocks = processingBlocks.filter(b => b !== blockNum)
+            return Promise.resolve(null)
+        }
+
         // Process the transactions
         const transactions = await processTransactions(steemBlock, blockNum)
 
