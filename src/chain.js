@@ -495,7 +495,22 @@ let chain = {
             if (!rebuilding && !p2p.recovering && consensus && consensus.observer) {
                 const latestBlock = chain.getLatestBlock()
                 const latestBlockId = latestBlock ? latestBlock._id : 0
-                const networkHeight = consensus.getNetworkHeight()
+                
+                // Get network height from consensus possible blocks
+                let networkHeight = latestBlockId
+                if (consensus.possBlocks && consensus.possBlocks.length > 0) {
+                    for (let possBlock of consensus.possBlocks) {
+                        if (possBlock.block && possBlock.block._id > networkHeight) {
+                            networkHeight = possBlock.block._id
+                        }
+                    }
+                }
+                
+                // Also check consensus last block
+                if (consensus.lastBlock && consensus.lastBlock._id > networkHeight) {
+                    networkHeight = consensus.lastBlock._id
+                }
+
                 if (networkHeight > latestBlockId) {
                     const blocksBehind = networkHeight - latestBlockId
                     logr.info('Catching up with network, head block: ' + latestBlockId + 
