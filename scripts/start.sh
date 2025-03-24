@@ -46,7 +46,7 @@ export REPLAY_OUTPUT=10000
 #export REBUILD_NO_VALIDATE=1
 export STEEM_API="https://api.steemit.com"
 # default peers to connect with on startup
-export PEERS="ws://ws.steemx.com"
+export PEERS=
 export MAX_PEERS=20
 
 # your user and keys (only useful for active node owners)
