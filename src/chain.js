@@ -739,9 +739,18 @@ let chain = {
             return
         }
 
-        // Skip timestamp checks if we're catching up or in sync mode
-        if (p2p.recovering || (steem && steem.isSyncing && steem.isSyncing())) {
-            logr.debug(`Skipping timestamp validation for block ${newBlock._id} during catch-up/sync`)
+        // Skip timestamp checks in any of these conditions:
+        // 1. Node is recovering/catching up (p2p.recovering)
+        // 2. Node is in sync mode (steem.isSyncing())
+        // 3. Node is significantly behind (> 10 blocks)
+        // 4. Node is an observer catching up
+        const isCatchingUp = p2p.recovering || 
+            (steem && steem.isSyncing && steem.isSyncing()) ||
+            (steem && steem.getBehindBlocks && steem.getBehindBlocks() > 10) ||
+            (consensus && consensus.observer === true)
+
+        if (isCatchingUp) {
+            logr.trace(`Skipping timestamp validation for block ${newBlock._id} - Node is catching up/syncing`)
         } else {
             // Check block timing with more flexibility
             const currentTime = new Date().getTime()
