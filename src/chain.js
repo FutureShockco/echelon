@@ -487,14 +487,19 @@ let chain = {
                                 output += ' (~' + hoursToSync + 'h ' + remainingMinutes + 'm to sync)';
                             }
                         }
-                        
-                        // Add catching up message
-                        if (!rebuilding && !p2p.recovering) {
-                            logr.info('Catching up with network, head block: ' + block._id + 
-                                    ', behind: ' + behind + ' blocks' +
-                                    ', steem block: ' + block.steemblock)
-                        }
                     }
+                }
+            }
+
+            // Add catching up message only when behind in sidechain blocks
+            if (!rebuilding && !p2p.recovering && consensus && consensus.observer) {
+                const latestBlock = chain.getLatestBlock()
+                const latestBlockId = latestBlock ? latestBlock._id : 0
+                const networkHeight = consensus.getNetworkHeight()
+                if (networkHeight > latestBlockId) {
+                    const blocksBehind = networkHeight - latestBlockId
+                    logr.info('Catching up with network, head block: ' + latestBlockId + 
+                            ', behind: ' + blocksBehind + ' blocks')
                 }
             }
             
