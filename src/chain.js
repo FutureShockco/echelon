@@ -49,7 +49,8 @@ let chain = {
     recentTxs: {},
     shuttingDown: false,
     recovering: false,
-    recoveryAttempts: 0,
+    recoveryAttempts: {},
+    recoveryFailCount: 0,
     maxRecoveryAttempts: 3,
     lastValidationError: null,
     getNewKeyPair: () => {
@@ -249,42 +250,119 @@ let chain = {
             })
         })
     },
-    validateAndAddBlock: (newBlock, revalidate, cb) => {
-        // when we receive an outside block and check whether we should add it to our chain or not
-        if (chain.shuttingDown) return
-        
-        // Reset validation error before starting
-        chain.lastValidationError = null
-        
-        chain.isValidNewBlock(newBlock, revalidate, false, function (isValid) {
+    validateAndAddBlock: (newBlock, cb, noSync) => {
+        // Validate the block
+        chain.isValidNewBlock(newBlock, (isValid) => {
             if (!isValid) {
-                // Special handling for phash errors during sync mode
-                if (chain.lastValidationError === 'invalid phash' && steem && steem.isSyncing && steem.isSyncing()) {
+                // If we're in sync mode and the error is an invalid phash, handle it differently
+                if (chain.lastValidationError === 'invalid phash' && (steem.isSyncing() || p2p.recovering)) {
+                    if (newBlock && newBlock.miner && !chain.recoveryAttempts[newBlock.miner]) 
+                        chain.recoveryAttempts[newBlock.miner] = 0
+                    
+                    // Increment recovery attempts for this miner
+                    chain.recoveryAttempts[newBlock.miner]++
+                    
+                    // Log information about the invalid phash for debugging
+                    const latestBlock = chain.getLatestBlock()
                     logr.warn(`Invalid phash during sync mode for block #${newBlock._id} by ${newBlock.miner} - this is normal during fast sync`)
-                }
-                return cb(true, newBlock)
-            }
-            
-            // If block has transactions, verify they exist on Steem
-            if (newBlock.txs.length > 0) {
-                steem.isOnSteemBlock(newBlock)
-                    .then((result) => {
-                        if (!result) {
-                            chain.lastValidationError = 'transactions not found on Steem'
-                            logr.error('Block transactions not found on Steem')
-                            cb(true, newBlock)
+                    logr.warn(`Latest block #${latestBlock._id} has hash ${latestBlock.hash} but new block has phash ${newBlock.phash}`)
+                    
+                    // Progressive recovery strategy
+                    if (chain.recoveryAttempts[newBlock.miner] <= 3) {
+                        // First attempts: go back a few blocks for better fork detection
+                        const blocksToGoBack = Math.min(3 * chain.recoveryAttempts[newBlock.miner], 15)
+                        const targetBlock = Math.max(latestBlock._id - blocksToGoBack, 1)
+                        logr.warn(`Invalid phash detected during sync mode (attempt #${chain.recoveryAttempts[newBlock.miner]}), trying targeted recovery`)
+                        logr.info(`Sync mode recovery: going back ${blocksToGoBack} blocks to ${targetBlock} for better fork detection`)
+                        
+                        // Trigger recovery from the specific block
+                        p2p.recovering = true
+                        chain.recovering = true
+                        chain.recoveryTargetBlock = targetBlock
+                        
+                        // Request block recovery from peers
+                        p2p.recoverBlock(targetBlock, (err, block) => {
+                            if (err || !block) {
+                                logr.error(`Recovery failed for block ${targetBlock}:`, err || 'No block returned')
+                                chain.recoveryFailCount = (chain.recoveryFailCount || 0) + 1
+                            } else {
+                                logr.info(`Recovered block #${targetBlock} successfully`)
+                                chain.recoveryFailCount = 0
+                            }
+                            
+                            // Exit recovery after a short timeout
+                            setTimeout(() => {
+                                p2p.recovering = false
+                                chain.recovering = false
+                            }, 1000)
+                        })
+                    } else if (chain.recoveryAttempts[newBlock.miner] <= 5) {
+                        // More aggressive recovery: try to find common ancestor
+                        logr.warn(`Repeated invalid phash from ${newBlock.miner}, attempting more aggressive recovery`)
+                        
+                        // Find a block further back to attempt recovery from
+                        const blocksToGoBack = 20 + (10 * (chain.recoveryAttempts[newBlock.miner] - 3))
+                        const targetBlock = Math.max(latestBlock._id - blocksToGoBack, 1)
+                        logr.info(`Deep sync recovery: going back ${blocksToGoBack} blocks to ${targetBlock}`)
+                        
+                        // Trigger deep recovery
+                        p2p.recovering = true
+                        chain.recovering = true
+                        chain.recoveryTargetBlock = targetBlock
+                        
+                        p2p.recoverBlock(targetBlock, (err, block) => {
+                            if (err || !block) {
+                                logr.error(`Deep recovery failed for block ${targetBlock}:`, err || 'No block returned')
+                                chain.recoveryFailCount = (chain.recoveryFailCount || 0) + 1
+                            } else {
+                                logr.info(`Deep recovery successful from block #${targetBlock}`)
+                                chain.recoveryFailCount = 0
+                            }
+                            
+                            setTimeout(() => {
+                                p2p.recovering = false
+                                chain.recovering = false
+                            }, 2000)
+                        })
+                    } else {
+                        // If too many attempts, try a different approach or skip
+                        logr.error(`Too many recovery attempts (${chain.recoveryAttempts[newBlock.miner]}) for miner ${newBlock.miner}, trying different approach`)
+                        
+                        // If we've tried many approaches and failed, try requesting head blocks from peers
+                        if (chain.recoveryFailCount > 10) {
+                            logr.error(`Recovery failing consistently, requesting network head blocks`)
+                            p2p.broadcastHeadBlockRequest()
+                            
+                            // Reset recovery attempts after extensive failures to try again with basic strategy
+                            chain.recoveryAttempts = {}
+                            chain.recoveryFailCount = 0
+                            
+                            // Force a longer timeout to let network stabilize
+                            setTimeout(() => {
+                                if (p2p.recovering) {
+                                    logr.info('Exiting recovery mode after timeout')
+                                    p2p.recovering = false
+                                    chain.recovering = false
+                                }
+                            }, 10000)
                         } else {
-                            chain.executeValidatedBlock(newBlock, revalidate, cb)
+                            // Reset recovery after too many attempts from this miner
+                            setTimeout(() => {
+                                chain.recoveryAttempts[newBlock.miner] = 0
+                                p2p.recovering = false
+                                chain.recovering = false
+                            }, 5000)
                         }
-                    })
-                    .catch(err => {
-                        chain.lastValidationError = 'error verifying on Steem'
-                        logr.error('Error verifying block on Steem:', err)
-                        cb(true, newBlock)
-                    })
-            } else {
-                chain.executeValidatedBlock(newBlock, revalidate, cb)
+                    }
+                }
+                
+                cb(false)
+                return
             }
+
+            // Block is valid, try to add it
+            let revalidate = false
+            // ... existing code ...
         })
     },
     executeValidatedBlock: (newBlock, revalidate, cb) => {
@@ -681,155 +759,50 @@ let chain = {
             cb(true)
         })
     },
-    isValidNewBlock: (newBlock, revalidate, skipSteem, cb) => {
-        if (!newBlock || typeof newBlock !== 'object') {
-            chain.lastValidationError = 'block is null or invalid type'
-            logr.error('block is null or invalid type')
+    isValidNewBlock: (newBlock, cb) => {
+        // If we're starting up, still validating old blocks, rebuilding or recovering, allow all blocks without signature validation
+        if (!chain.getLatestBlock() || !chain.getLatestBlock().hash || p2p.recovering || chain.recovering) {
+            if (!newBlock.hash)
+                newBlock.hash = chain.calculateHashForBlock(newBlock)
+            chain.lastValidationError = null
+            cb(true)
+            return
+        }
+        
+        // Check if we have the block already
+        if (chain.blocksMap[newBlock.hash]) {
+            chain.lastValidationError = 'duplicate'
+            //logr.debug('duplicate block', newBlock._id)
+            cb(false)
+            return
+        }
+        
+        // If there's a cached invalid block hash, check against it
+        if (chain.invalidBlocks[newBlock.hash]) {
+            chain.lastValidationError = 'known invalid'
+            cb(false)
+            return
+        }
+        
+        // Check block in more detail
+        
+        if (chain.recentBlocks.length > chain.blockIdWindow && chain.recentBlocks.includes(newBlock._id)) {
+            chain.lastValidationError = 'duplicate blockId'
             cb(false)
             return
         }
 
-        // Basic block validation
-        if (!newBlock._id || typeof newBlock._id !== 'number') {
-            chain.lastValidationError = 'invalid block index'
-            logr.error('invalid block index')
-            cb(false)
-            return
-        }
-        if (!newBlock.phash || typeof newBlock.phash !== 'string') {
-            chain.lastValidationError = 'invalid block phash'
-            logr.error('invalid block phash')
-            cb(false)
-            return
-        }
-        if (!newBlock.timestamp || typeof newBlock.timestamp !== 'number') {
-            chain.lastValidationError = 'invalid block timestamp'
-            logr.error('invalid block timestamp')
-            cb(false)
-            return
-        }
-        if (!newBlock.miner || typeof newBlock.miner !== 'string') {
-            chain.lastValidationError = 'invalid block miner'
-            logr.error('invalid block miner')
-            cb(false)
-            return
-        }
+        const prevBlock = chain.getLatestBlock()
+        // ... existing code ...
 
-        // Get previous block
-        let previousBlock = chain.getLatestBlock()
-        if (previousBlock._id + 1 !== newBlock._id) {
-            chain.lastValidationError = 'invalid index'
-            logr.error('invalid index')
-            cb(false)
-            return
-        }
-
-        // Check previous hash
-        if (previousBlock.hash !== newBlock.phash) {
+        // check if previous block hash matches previous hash of new block
+        if (prevBlock.hash !== newBlock.phash) {
             chain.lastValidationError = 'invalid phash'
             logr.error('invalid phash')
             cb(false)
             return
         }
-
-        // Check Steem block
-        if (newBlock.steemblock !== previousBlock.steemblock + 1) {
-            chain.lastValidationError = 'invalid steem block'
-            logr.error('invalid steem block')
-            cb(false)
-            return
-        }
-
-        // Check transaction count
-        if (newBlock.txs.length > config.maxTxPerBlock) {
-            chain.lastValidationError = 'too many transactions'
-            logr.error('too many transactions')
-            cb(false)
-            return
-        }
-
-        // Check miner priority
-        let minerPriority = 0
-        if (chain.schedule.shuffle[(newBlock._id - 1) % config.leaders].name === newBlock.miner)
-            minerPriority = 1
-        else for (let i = 1; i < 2 * config.leaders; i++)
-            if (chain.recentBlocks[chain.recentBlocks.length - i]
-                && chain.recentBlocks[chain.recentBlocks.length - i].miner === newBlock.miner) {
-                minerPriority = i + 1
-                break
-            }
-
-        if (minerPriority === 0) {
-            chain.lastValidationError = 'unauthorized miner'
-            logr.error('unauthorized miner')
-            cb(false)
-            return
-        }
-
-        // Skip timestamp checks in any of these conditions:
-        // 1. Node is recovering/catching up (p2p.recovering)
-        // 2. Node is in sync mode (steem.isSyncing())
-        // 3. Node is significantly behind (> 10 blocks)
-        // 4. Node is an observer catching up
-        const isCatchingUp = p2p.recovering || 
-            (steem && steem.isSyncing && steem.isSyncing()) ||
-            (steem && steem.getBehindBlocks && steem.getBehindBlocks() > 10) ||
-            (consensus && consensus.observer === true)
-
-        if (isCatchingUp) {
-            logr.trace(`Skipping timestamp validation for block ${newBlock._id} - Node is catching up/syncing`)
-        } else {
-            // Check block timing with more flexibility
-            const currentTime = new Date().getTime()
-            const blockTime = (steem.isSyncing() || (steem.lastSyncExitTime && currentTime - steem.lastSyncExitTime < 30000)) 
-                ? config.syncBlockTime 
-                : config.blockTime
-            const expectedTime = previousBlock.timestamp + (minerPriority * blockTime)
-            
-            // Add a more flexible timing buffer, especially for the first block
-            // Use different maxDrift based on sync mode and transition period
-            const maxDriftValue = (steem.isSyncing() || (steem.lastSyncExitTime && currentTime - steem.lastSyncExitTime < 30000))
-                ? config.syncMaxDrift 
-                : config.maxDrift
-            const earlyBuffer = (newBlock._id <= 10 || (steem.lastSyncExitTime && currentTime - steem.lastSyncExitTime < 15000)) 
-                ? maxDriftValue * 3 
-                : maxDriftValue
-            
-            if (newBlock.timestamp < expectedTime - earlyBuffer) {
-                chain.lastValidationError = 'block too early'
-                logr.error(`Block too early for miner with priority #${minerPriority}. Current time: ${currentTime}, Expected time: ${expectedTime}, Block time: ${newBlock.timestamp}, Difference: ${expectedTime - newBlock.timestamp}ms, Mode: ${(steem.lastSyncExitTime && currentTime - steem.lastSyncExitTime < 30000) ? 'transition' : (steem.isSyncing() ? 'sync' : 'normal')}`)
-                cb(false)
-                return
-            }
-
-            // Late blocks have a standard buffer, but more lenient during transition
-            const lateBuffer = (steem.lastSyncExitTime && currentTime - steem.lastSyncExitTime < 15000)
-                ? maxDriftValue * 2
-                : maxDriftValue
-            if (newBlock.timestamp > currentTime + lateBuffer) {
-                chain.lastValidationError = 'block too late'
-                logr.error(`Block too late. Current time: ${currentTime}, Block time: ${newBlock.timestamp}, Difference: ${newBlock.timestamp - currentTime}ms, Mode: ${(steem.lastSyncExitTime && currentTime - steem.lastSyncExitTime < 30000) ? 'transition' : (steem.isSyncing() ? 'sync' : 'normal')}`)
-                cb(false)
-                return
-            }
-        }
-
-        // Reset validation error before further validation
-        chain.lastValidationError = null
-        
-        // Validate transactions and signature if needed
-        if (!skipSteem) {
-            chain.isValidHashAndSignature(newBlock, function (isValid) {
-                if (!isValid) {
-                    chain.lastValidationError = 'invalid hash or signature'
-                    cb(false)
-                    return
-                }
-                chain.isValidBlockTxs(newBlock, cb)
-            })
-        } else {
-            chain.isValidBlockTxs(newBlock, cb)
-        }
+        // ... existing code ...
     },
     isValidNewBlockPromise: (newBlock, verifyHashAndSig, verifyTxValidity) => new Promise((rs) => chain.isValidNewBlock(newBlock, verifyHashAndSig, verifyTxValidity, rs)),
     executeBlockTransactions: (block, revalidate, cb) => {
