@@ -1,4 +1,9 @@
 const dsteem = require('dsteem')
+// Add minerLog function
+const minerLog = (message) => {
+    return `[MINER] ${message}`
+}
+
 // Setup multiple endpoints with manual failover
 const apiUrls = process.env.STEEM_API ? process.env.STEEM_API.split(',').map(url => url.trim()) : ['https://api.steemit.com']
 console.log('Using Steem API URLs:', apiUrls)
