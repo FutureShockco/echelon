@@ -34,7 +34,7 @@ class Block {
         if (steem && steem.getBehindBlocks) {
             const behindBlocks = steem.getBehindBlocks()
             // Stay in sync mode if significantly behind or recently caught up
-            if (behindBlocks > 5 || (steem.lastSyncExitTime && new Date().getTime() - steem.lastSyncExitTime < 10000)) {
+            if (behindBlocks > 5) {
                 this.syncMode = true
             }
         }
@@ -414,10 +414,17 @@ let chain = {
         daoMaster.nextBlock()
         leaderStats.processBlock(block)
         txHistory.processBlock(block)
+        const latestSteemBlock = await steem.getLatestSteemBlockNum()
 
-        // Check if we should exit sync mode - only when fully caught up
-        if (steem && steem.isSyncing && steem.isSyncing() && 
-            steem.getBehindBlocks() === 0) {
+        const behindBlocks = Math.max(0, latestSteemBlock - block.steemblock)
+        if (behindBlocks > 3 && !p2p.recovering) {
+            if (latestSteemBlock) {
+                const behindBlocks = Math.max(0, latestSteemBlock - block.steemblock)
+                steem.updateNetworkBehindBlocks(behindBlocks)
+                logr.debug(`Updated behind blocks count: ${behindBlocks} (Steem: ${latestSteemBlock}, Local: ${block.steemblock})`)
+            }
+        }
+        else {
             steem.exitSyncMode()
             logr.info('Exiting sync mode - chain fully caught up')
         }
