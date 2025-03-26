@@ -1103,7 +1103,7 @@ module.exports = {
 
         // Set initial state
         setReadyToReceiveTransactions(false)
-        isSyncing = true
+        isSyncing = false
 
         // First check network sync status
         checkNetworkSyncStatus().then(async () => {
