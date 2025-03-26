@@ -19,7 +19,6 @@ const bs58 = require('base-x')(config.b58Alphabet)
 const blocks = require('./blocks')
 const dao = require('./dao')
 const daoMaster = require('./daoMaster')
-let steem // Will be initialized after being exported
 
 const MessageType = {
     QUERY_NODE_STATUS: 0,
@@ -335,7 +334,7 @@ let p2p = {
                 break
 
             case MessageType.BLOCK_CONF_ROUND:
-                const blockTime = steem.isSyncing() ? config.syncBlockTime : config.blockTime
+                const blockTime = steem.isInSyncMode() ? config.syncBlockTime : config.blockTime
                 // we are receiving a consensus round confirmation
                 // it should come from one of the elected leaders, so let's verify signature
                 if (p2p.recovering) return
@@ -484,6 +483,17 @@ let p2p = {
             steem.setReadyToReceiveTransactions(true)
             logr.info('🚀 Node startup complete - ready to process transactions and mine blocks')
 
+        //TODO
+        // During sync mode, if we get invalid phash errors, we may need to recover from a bit earlier
+        // to ensure we catch the right fork
+        let recoverFromBlock = p2p.recovering
+        if (steem && steem.isSyncing && steem.isInSyncMode() && p2p.recoverAttempt > 0) {
+            // Go back a few blocks when in sync mode and previous recovery attempts failed
+            // This helps with fork detection and recovery
+            const backtrackBlocks = Math.min(3 * p2p.recoverAttempt, 10)
+            recoverFromBlock = Math.max(1, chain.getLatestBlock()._id - backtrackBlocks)
+            logr.info(`Sync mode recovery: going back ${backtrackBlocks} blocks to ${recoverFromBlock} for better fork detection`)
+            p2p.recovering = recoverFromBlock
             return
         }
 
@@ -551,7 +561,7 @@ let p2p = {
         const status = typeof syncStatus === 'number' ? {
             nodeId: p2p.nodeId.pub,
             behindBlocks: syncStatus,
-            isSyncing: steem.isSyncing ? steem.isSyncing() : (syncStatus > 0),
+            isSyncing: steem.isSyncing ? steem.isInSyncMode() : (syncStatus > 0),
             timestamp: Date.now()
         } : {
             nodeId: p2p.nodeId.pub,
@@ -581,7 +591,7 @@ let p2p = {
                 statuses.push({
                     nodeId: p2p.nodeId.pub,
                     behindBlocks: steem.getBehindBlocks ? steem.getBehindBlocks() : 0,
-                    isSyncing: steem.isSyncing ? steem.isSyncing() : false
+                    isSyncing: steem.isSyncing ? steem.isInSyncMode() : false
                 })
             }
             
@@ -603,7 +613,7 @@ let p2p = {
             if (err) {
                 // Check if this is a "invalid phash" error during sync mode
                 const isPhashError = chain.lastValidationError === 'invalid phash'
-                const isSyncMode = steem && steem.isSyncing && steem.isSyncing()
+                const isSyncMode = steem && steem.isSyncing && steem.isInSyncMode()
                 
                 if (isPhashError && isSyncMode && p2p.recoverAttempt < max_recover_attempts/2) {
                     // During sync mode, phash errors are common due to nodes producing blocks at different rates

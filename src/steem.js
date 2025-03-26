@@ -66,11 +66,10 @@ const MAX_RETRY_DELAY = 15000
 const CIRCUIT_BREAKER_THRESHOLD = 30
 const CIRCUIT_BREAKER_RESET_TIMEOUT = 30000
 const MAX_PREFETCH_BLOCKS = 10  // Maximum number of blocks to prefetch at once
-const TARGET_BEHIND_BLOCKS = 2  // Target number of blocks to stay behind Steem
-const MAX_BEHIND_BLOCKS = 5     // Maximum blocks behind before entering sync mode
+const TARGET_BEHIND_BLOCKS = 3  // Target number of blocks to stay behind Steem
+const MAX_BEHIND_BLOCKS = 5    // Maximum blocks behind before entering sync mode
 const SYNC_EXIT_COOLDOWN = 6000 // Cooldown before exiting sync mode
-const SYNC_EXIT_THRESHOLD = 3   // Exit sync when we're at most this many blocks behind
-const SYNC_BROADCAST_MODULO = 3 // Only broadcast sync status every N sidechain blocks
+const SYNC_EXIT_THRESHOLD = 4   // Exit sync when we're at most this many blocks behind
 
 let consecutiveErrors = 0
 let retryDelay = MIN_RETRY_DELAY
@@ -131,7 +130,7 @@ const updateNetworkBehindBlocks = (newValue) => {
         logr.debug(`Behind blocks updated: ${oldValue} -> ${newValue}`)
         
         // If we get an update that we're significantly behind, consider entering sync mode
-        if (behindBlocks >= TARGET_BEHIND_BLOCKS && !isSyncing) {
+        if (!p2p.recovering && behindBlocks >= TARGET_BEHIND_BLOCKS && !isSyncing) {
             logr.info(`Entering sync mode based on network report, ${behindBlocks} blocks behind`)
             isSyncing = true
             
@@ -145,10 +144,7 @@ const updateNetworkBehindBlocks = (newValue) => {
 
 // Helper function to check sync status
 const isInSyncMode = () => {
-    // Check if we're forced into sync mode by a recent block
-    if (chain && chain.getLatestBlock() && chain.getLatestBlock()._id < forceSyncUntilBlock) {
-        return true
-    }
+
     return isSyncing
 }
 
@@ -646,21 +642,91 @@ const calculateNetworkBehindBlocksConsensus = () => {
 
 // Modify updateSteemBlock to include warmup period and consensus
 const updateSteemBlock = async () => {
-    if (!steem || !steem.isSyncing || !steem.isSyncing()) return
-    
-    steem.getLatestSteemBlockNum().then(latestSteemBlock => {
-        if (!latestSteemBlock) return
+    try {
+        // Check if we're still in warmup period
+        const isInWarmup = Date.now() - nodeStartTime < WARMUP_PERIOD
         
-        const currentBlock = chain.getLatestBlock()
-        if (!currentBlock) return
+        // Get the median RPC height for sync decisions
+        const medianRpcHeight = await checkRpcSync()
         
-        const behindBlocks = Math.max(0, latestSteemBlock - currentBlock._id)
-        //steem.updateNetworkBehindBlocks(behindBlocks)
+        // Check network sync status periodically
+        const now = Date.now()
+        if (now - lastNetworkSyncCheck > NETWORK_SYNC_CHECK_INTERVAL) {
+            await checkNetworkSyncStatus()
+            lastNetworkSyncCheck = now
+        }
         
-        logr.debug(`Updated Steem block state: ${behindBlocks} blocks behind, Steem block: ${latestSteemBlock}, current block: ${currentBlock._id}`)
-    }).catch(error => {
+        // Get our last processed Steem block
+        let lastProcessedSteemBlock = 0
+        if (chain && chain.getLatestBlock() && chain.getLatestBlock().steemblock) {
+            lastProcessedSteemBlock = chain.getLatestBlock().steemblock
+        } else if (config.steemStartBlock) {
+            lastProcessedSteemBlock = config.steemStartBlock
+        }
+
+        // Update currentSteemBlock
+        currentSteemBlock = Math.max(currentSteemBlock, lastProcessedSteemBlock)
+
+        // Calculate local behind blocks using median RPC height
+        const latestSteemBlock = medianRpcHeight || (await client.database.getDynamicGlobalProperties()).head_block_number
+        const localBehindBlocks = Math.max(0, latestSteemBlock - lastProcessedSteemBlock)
+        
+        // Get network's view of sync status
+        const networkStatus = getNetworkSyncStatus()
+
+        // Calculate network consensus on behind blocks
+        const consensusBehindBlocks = calculateNetworkBehindBlocksConsensus()
+        
+        // Update behindBlocks based on network consensus, reference node, or local calculation
+        if (isInWarmup) {
+            // During warmup, use the maximum of consensus, reference, or local
+            if (consensusBehindBlocks !== null) {
+                updateNetworkBehindBlocks(Math.max(consensusBehindBlocks, localBehindBlocks))
+                logr.debug(`Warmup: Using consensus behind blocks: ${behindBlocks} (consensus: ${consensusBehindBlocks}, local: ${localBehindBlocks})`)
+            } else if (networkStatus.referenceExists) {
+                updateNetworkBehindBlocks(Math.max(networkStatus.referenceBehind, localBehindBlocks))
+                logr.debug(`Warmup: Using reference behind blocks: ${behindBlocks} (reference: ${networkStatus.referenceNodeId}, local: ${localBehindBlocks})`)
+            } else {
+                updateNetworkBehindBlocks(localBehindBlocks)
+                logr.debug(`Warmup: Using local behind blocks: ${behindBlocks}`)
+            }
+        } else {
+            // After warmup, prioritize consensus > reference node > local calculation
+            if (consensusBehindBlocks !== null) {
+                updateNetworkBehindBlocks(consensusBehindBlocks)
+                logr.debug(`Using network consensus behind blocks: ${behindBlocks} (consensus from ${networkSteemHeights.size} nodes)`)
+            } else if (networkStatus.referenceExists) {
+                updateNetworkBehindBlocks(networkStatus.referenceBehind)
+                logr.debug(`Using reference behind blocks: ${behindBlocks} (reference: ${networkStatus.referenceNodeId})`)
+            } else {
+                updateNetworkBehindBlocks(localBehindBlocks)
+                logr.debug(`Using local behind blocks: ${behindBlocks} (no consensus or reference available)`)
+            }
+        }
+
+        // Don't change sync mode if we're in forced sync
+        if (chain && chain.getLatestBlock() && chain.getLatestBlock()._id < forceSyncUntilBlock) {
+            return latestSteemBlock
+        }
+
+        // Check if we should enter or exit sync mode
+        if (behindBlocks > MAX_BEHIND_BLOCKS || !readyToReceiveTransactions) {
+            enterSyncMode()
+        } else {
+            exitSyncMode()
+        }
+
+        // If we're too close to head, slow down processing
+        if (behindBlocks < TARGET_BEHIND_BLOCKS) {
+            logr.debug(`Too close to Steem head (${behindBlocks} blocks), slowing down processing`)
+            await new Promise(resolve => setTimeout(resolve, 1000))
+        }
+
+        return latestSteemBlock
+    } catch (error) {
         logr.error('Error updating Steem block state:', error)
-    })
+        return null
+    }
 }
 
 // Health monitoring
@@ -747,7 +813,7 @@ const resetConsecutiveErrors = () => {
 }
 
 // Initial interval
-syncInterval = setInterval(updateSteemBlock, 3000)
+// syncInterval = setInterval(updateSteemBlock, 3000)
 
 const initPrefetch = (startBlock) => {
     // Initialize prefetching
@@ -848,9 +914,33 @@ const getLatestSteemBlockNum = async () => {
     }
 }
 
+function enterSyncMode() {
+    if (!isSyncing && !p2p.recovering) {
+        logr.info(`Entering sync mode: ${behindBlocks} blocks behind (target: ${TARGET_BEHIND_BLOCKS}, max: ${MAX_BEHIND_BLOCKS})`)
+        isSyncing = true
+        lastSyncModeChange = Date.now()
+        
+        // If we're too far behind, we might need to recover from earlier
+        if (behindBlocks > MAX_BEHIND_BLOCKS * 2) {
+            const backtrackBlocks = Math.min(3, Math.floor(behindBlocks / MAX_BEHIND_BLOCKS))
+            const recoverFromBlock = Math.max(1, chain.getLatestBlock()._id - backtrackBlocks)
+            logr.info(`Sync mode recovery: going back ${backtrackBlocks} blocks to ${recoverFromBlock} for better fork detection`)
+            chain.recoverFromBlock(recoverFromBlock)
+        }
+    }
+}
+
 function exitSyncMode() {
-    // Do nothing - sync mode exit is handled in updateSteemBlock
-    logr.debug('Sync mode exit requested but ignored - handled by updateSteemBlock')
+    if (isSyncing && 
+        Date.now() - lastSyncModeChange > SYNC_EXIT_COOLDOWN &&
+        (!lastSyncExitTime || Date.now() - lastSyncExitTime > SYNC_EXIT_COOLDOWN * 2) &&
+        behindBlocks <= SYNC_EXIT_THRESHOLD) {
+        
+        logr.info(`Exiting sync mode - within target range (${behindBlocks} blocks behind, target: ${TARGET_BEHIND_BLOCKS})`)
+        isSyncing = false
+        lastSyncModeChange = Date.now()
+        lastSyncExitTime = Date.now()
+    }
 }
 
 // Add this new function to check network sync status
@@ -1082,10 +1172,6 @@ module.exports = {
         return currentSteemBlock
     },
     isSyncing: () => {
-        // Check if we're forced into sync mode by a recent block
-        if (chain && chain.getLatestBlock() && chain.getLatestBlock()._id < forceSyncUntilBlock) {
-            return true
-        }
         return isSyncing
     },
     getBehindBlocks: () => {
@@ -1164,7 +1250,9 @@ module.exports = {
     fetchMissingBlock,
     prefetchBlocks,
     setReadyToReceiveTransactions,
+    enterSyncMode,
     exitSyncMode,
+    isInSyncMode,
     lastSyncExitTime: lastSyncExitTime,
     getNetworkSyncStatus: () => {
         // Return array of nodes and their sync status
