@@ -1,6 +1,6 @@
 const version = '1.6.6'
 const default_port = 6001
-const replay_interval = 1500
+const replay_interval = 1000
 const discovery_interval = 60000
 const keep_alive_interval = 2500
 const max_blocks_buffer = 100
