@@ -6,6 +6,9 @@ const consensus_need = 2
 const consensus_total = 3
 const consensus_threshold = consensus_need/consensus_total
 
+// Add sync mode threshold - make it more conservative
+const sync_consensus_threshold = 0.5 // 60% threshold during sync mode
+
 // all p2p.sockets referenced here are verified nodes with a node_status
 
 let consensus = {
@@ -59,11 +62,14 @@ let consensus = {
     },
     tryNextStep: () => {
         let consensus_size = consensus.activeLeaders().length
-        let threshold = consensus_size * consensus_threshold
+        let threshold = consensus_size * (steem && steem.isInSyncMode() ? sync_consensus_threshold : consensus_threshold)
 
         // if we are observing, we need +1 to pass consensus as we want to manage our own rounds
         if (!consensus.isActive())
             threshold += 1
+
+        // Add better logging for consensus thresholds
+        logr.debug(`Consensus threshold: ${threshold} (size: ${consensus_size}, sync: ${steem && steem.isInSyncMode()})`)
 
         // identify block collisions between blocks of same _id produced by:
         // 1. only one leader (double production)
