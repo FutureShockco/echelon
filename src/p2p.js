@@ -482,18 +482,7 @@ let p2p = {
             p2p.recovering = false
             steem.setReadyToReceiveTransactions(true)
             logr.info('🚀 Node startup complete - ready to process transactions and mine blocks')
-        }
-        //TODO
-        // During sync mode, if we get invalid phash errors, we may need to recover from a bit earlier
-        // to ensure we catch the right fork
-        let recoverFromBlock = p2p.recovering
-        if (steem && steem.isSyncing && steem.isInSyncMode() && p2p.recoverAttempt > 0) {
-            // Go back a few blocks when in sync mode and previous recovery attempts failed
-            // This helps with fork detection and recovery
-            const backtrackBlocks = Math.min(3 * p2p.recoverAttempt, 10)
-            recoverFromBlock = Math.max(1, chain.getLatestBlock()._id - backtrackBlocks)
-            logr.info(`Sync mode recovery: going back ${backtrackBlocks} blocks to ${recoverFromBlock} for better fork detection`)
-            p2p.recovering = recoverFromBlock
+
             return
         }
 
