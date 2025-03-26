@@ -1285,6 +1285,7 @@ module.exports = {
     prefetchBlocks,
     setReadyToReceiveTransactions,
     exitSyncMode,
+    getLatestSteemBlockNum,
     lastSyncExitTime: lastSyncExitTime,
     getNetworkSyncStatus: () => {
         // Return array of nodes and their sync status
