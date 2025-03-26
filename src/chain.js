@@ -803,7 +803,10 @@ let chain = {
 
             // Determine if we need extended buffer
             if (isNearHead || recentlySynced || chain.recoveryAttempts > 0) {
-                maxDriftBuffer = config.maxDrift * 3
+                // Use a much larger buffer during sync mode or recovery
+                maxDriftBuffer = (steem && steem.isSyncing && steem.isInSyncMode()) 
+                    ? config.syncMaxDrift * 4  // 4x buffer during sync
+                    : config.maxDrift * 3      // 3x buffer during normal mode
                 logr.debug(`Using extended timestamp drift buffer (${maxDriftBuffer}ms) for block ${newBlock._id}`)
             }
 

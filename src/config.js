@@ -87,7 +87,7 @@ let config = {
             // the maximum time drift in ms before a block is invalid
             maxDrift: 200,
             // the maximum time drift during sync mode
-            syncMaxDrift: 300,
+            syncMaxDrift: 500,
             // the maximum number of transactions in a single block
             maxTxPerBlock: 20,
             // the max length of a transfer memo
