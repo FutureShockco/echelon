@@ -611,49 +611,32 @@ let p2p = {
         }
     },
     addRecursive: (block) => {
-        chain.validateAndAddBlock(block, true, function (err, newBlock) {
+        chain.validateAndAddBlock(block, true, function(err, newBlock) {
             if (err) {
-                // Check if this is a "invalid phash" error during sync mode
-                const isPhashError = chain.lastValidationError === 'invalid phash'
-                const isSyncMode = steem && steem.isSyncing && steem.isInSyncMode()
-
-                if (isPhashError && isSyncMode && p2p.recoverAttempt < max_recover_attempts / 2) {
-                    // During sync mode, phash errors are common due to nodes producing blocks at different rates
-                    // Instead of full rollback, try to recover from a specific point
-                    logr.warn(`Invalid phash detected during sync mode (attempt #${p2p.recoverAttempt + 1}), trying targeted recovery`)
-                    p2p.recoveredBlocks = []
-                    p2p.recoveringBlocks = []
-                    p2p.recoverAttempt++
-
-                    // Try to recover from a few blocks back to get on the right fork
-                    p2p.recovering = Math.max(1, chain.getLatestBlock()._id - (3 * p2p.recoverAttempt))
+                // try another peer if bad block
+                cache.rollback()
+                dao.resetID()
+                daoMaster.resetID()
+                p2p.recoveredBlocks = []
+                p2p.recoveringBlocks = []
+                p2p.recoverAttempt++
+                if (p2p.recoverAttempt > max_recover_attempts)
+                    logr.error('Error Replay', newBlock._id)
+                else {
+                    logr.warn('Recover attempt #'+p2p.recoverAttempt+' for block '+newBlock._id)
+                    p2p.recovering = chain.getLatestBlock()._id
                     p2p.recover()
-                } else {
-                    // Standard recovery for other errors or after several phash errors
-                    cache.rollback()
-                    dao.resetID()
-                    daoMaster.resetID()
-                    p2p.recoveredBlocks = []
-                    p2p.recoveringBlocks = []
-                    p2p.recoverAttempt++
-                    if (p2p.recoverAttempt > max_recover_attempts)
-                        logr.error('Error Replay', newBlock._id)
-                    else {
-                        logr.warn('Recover attempt #' + p2p.recoverAttempt + ' for block ' + newBlock._id)
-                        p2p.recovering = chain.getLatestBlock()._id
-                        p2p.recover()
-                    }
                 }
             } else {
                 p2p.recoverAttempt = 0
                 delete p2p.recoveredBlocks[newBlock._id]
                 p2p.recover()
-                if (p2p.recoveredBlocks[chain.getLatestBlock()._id + 1])
-                    setTimeout(function () {
-                        if (p2p.recoveredBlocks[chain.getLatestBlock()._id + 1])
-                            p2p.addRecursive(p2p.recoveredBlocks[chain.getLatestBlock()._id + 1])
+                if (p2p.recoveredBlocks[chain.getLatestBlock()._id+1]) 
+                    setTimeout(function() {
+                        if (p2p.recoveredBlocks[chain.getLatestBlock()._id+1])
+                            p2p.addRecursive(p2p.recoveredBlocks[chain.getLatestBlock()._id+1])
                     }, 1)
-            }
+            }     
         })
     },
     cleanRoundConfHistory: () => {
