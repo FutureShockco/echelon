@@ -384,7 +384,7 @@ let chain = {
             }
 
             // Make sure the node is marked as ready to receive transactions now that we're mining
-            if (steem && steem.setReadyToReceiveTransactions)
+            if (steem && !steem.setReadyToReceiveTransactions)
                 steem.setReadyToReceiveTransactions(true)
 
             chain.worker = setTimeout(function () {

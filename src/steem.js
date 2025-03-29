@@ -1189,7 +1189,7 @@ module.exports = {
                 // If block not in cache, try to fetch it
                 if (!steemBlock) {
                     logr.warn(`Steem block ${block.steemblock} not found in cache, attempting to fetch it`)
-                    steemBlock = await module.exports.fetchMissingBlock(block.steemblock)
+                    steemBlock = await fetchMissingBlock(block.steemblock)
 
                     // If still can't get the block, resolve with false
                     if (!steemBlock) {
