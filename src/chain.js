@@ -414,10 +414,11 @@ let chain = {
         daoMaster.nextBlock()
         leaderStats.processBlock(block)
         txHistory.processBlock(block)
-        const latestSteemBlock = await steem.getLatestSteemBlockNum()
-        const behindBlocks = Math.max(0, latestSteemBlock - block.steemblock)
+
         // Update behindBlocks count every 5 blocks
         if (steem && block._id % 2 === 0 && !p2p.recovering) {
+            const latestSteemBlock = await steem.getLatestSteemBlockNum()
+            const behindBlocks = Math.max(0, latestSteemBlock - block.steemblock)
             try {
 
                 if (latestSteemBlock) {
