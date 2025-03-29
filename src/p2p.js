@@ -482,9 +482,10 @@ let p2p = {
             p2p.recovering = false
             steem.setReadyToReceiveTransactions(true)
             logr.info('🚀 Node startup complete - ready to process transactions and mine blocks')
+            return
         }
 
-                //TODO
+        //TODO
         // During sync mode, if we get invalid phash errors, we may need to recover from a bit earlier
         // to ensure we catch the right fork
         let recoverFromBlock = p2p.recovering
@@ -499,6 +500,13 @@ let p2p = {
         }
 
         let champion = peersAhead[Math.floor(Math.random() * peersAhead.length)]
+        if (!champion || !champion.node_status) {
+            logr.warn('No valid champion peer found for recovery')
+            p2p.recovering = false
+            steem.setReadyToReceiveTransactions(true)
+            return
+        }
+
         if (p2p.recovering + 1 <= champion.node_status.head_block) {
             p2p.recovering++
             p2p.sendJSON(champion, { t: MessageType.QUERY_BLOCK, d: p2p.recovering })
