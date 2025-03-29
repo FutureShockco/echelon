@@ -565,7 +565,7 @@ let p2p = {
     },
     broadcastSyncStatus: (syncStatus) => {
         // Broadcast steem sync status to all connected peers
-        if (p2p.recovering || !steem) return
+        if (!steem) return
 
         // If syncStatus is a number, it's just the behindBlocks count
         const status = typeof syncStatus === 'number' ? {
