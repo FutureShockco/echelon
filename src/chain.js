@@ -417,12 +417,12 @@ let chain = {
         const latestSteemBlock = await steem.getLatestSteemBlockNum()
         const behindBlocks = Math.max(0, latestSteemBlock - block.steemblock)
         // Update behindBlocks count every 5 blocks
-        if (steem && block._id % 2 === 0 && !p2p.recovering) {
+        if (steem && block._id % 5 === 0 && !p2p.recovering) {
             try {
 
                 if (latestSteemBlock) {
                     // Always update and broadcast if we're in sync mode or if there's a significant change
-                    if (steem.isInSyncMode() || behindBlocks > 1) {
+                    if (steem.isInSyncMode() || behindBlocks > 3) {
                         steem.updateNetworkBehindBlocks(behindBlocks)
                         logr.info(`Updated behind blocks count: ${behindBlocks} (Steem: ${latestSteemBlock}, Local: ${block.steemblock})`)
 
