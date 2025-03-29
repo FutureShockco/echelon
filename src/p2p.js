@@ -482,7 +482,7 @@ let p2p = {
             p2p.recovering = false
             steem.setReadyToReceiveTransactions(true)
             logr.info('🚀 Node startup complete - ready to process transactions and mine blocks')
-
+        }
         //TODO
         // During sync mode, if we get invalid phash errors, we may need to recover from a bit earlier
         // to ensure we catch the right fork
