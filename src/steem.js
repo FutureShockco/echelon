@@ -159,7 +159,7 @@ const updateNetworkBehindBlocks = (newValue) => {
             syncExitTargetBlock = null
             
             // Reset the post-sync behind blocks tracking
-            if (chain && exitCount < 1) {
+            if (chain && exitCount < 2) {
                 chain.totalPostSyncBehind = 0;
                 chain.postSyncBehindCount = 0;
                 chain.avgPostSyncBehind = 0;
@@ -187,9 +187,9 @@ const updateNetworkBehindBlocks = (newValue) => {
             if (!latestBlock) return
             
             // Set exit target only when consensus says we're caught up
-            if (consensusBehind <= config.steemBlockDelay * 3 && !syncExitTargetBlock) {
+            if (consensusBehind <= config.steemBlockDelay * 2 && !syncExitTargetBlock) {
                 // Set immediate exit at next block
-                syncExitTargetBlock = latestBlock._id + 1
+                syncExitTargetBlock = latestBlock._id + config.steemBlockDelay
                 logr.info(`Network consensus shows we're caught up (${consensusBehind} blocks behind). Setting exit target to next block ${syncExitTargetBlock}`)
                 
                 // Broadcast our target
@@ -205,7 +205,7 @@ const updateNetworkBehindBlocks = (newValue) => {
                 }
             }
             // Clear exit target if consensus changes to not caught up
-            else if (consensusBehind > 1 && syncExitTargetBlock) {
+            else if (consensusBehind > config.steemBlockDelay && syncExitTargetBlock) {
                 logr.info(`Network consensus shows we're behind (${consensusBehind} blocks). Clearing exit target.`)
                 syncExitTargetBlock = null
                 
@@ -267,7 +267,7 @@ const shouldExitSyncMode = (currentBlockId) => {
     }
     
     // If consensus says we're still behind, don't exit
-    if (consensusBehind > 1) {
+    if (consensusBehind > config.steemBlockDelay) {
         // If we have a target block but consensus says we're still behind, clear the target
         if (syncExitTargetBlock) {
             logr.info(`Clearing sync exit target. Consensus shows we're still ${consensusBehind} blocks behind`)
