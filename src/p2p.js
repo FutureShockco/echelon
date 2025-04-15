@@ -512,7 +512,7 @@ let p2p = {
             }
         }
 
-        if (!highestPeer) {
+        if (!highestPeer || p2p.recovering === highestBlock) {
             p2p.recovering = false
             return
         }
