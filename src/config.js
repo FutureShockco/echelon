@@ -2,7 +2,7 @@ let config = {
     history: {
         0: {
             // Steem block to start streaming from
-            steemStartBlock: 94818885,
+            steemStartBlock: 94846212,
             steemBlockDelay: 1,
             // this is the block 0 configuration for mainnet
             accountPriceBase: 20000,
