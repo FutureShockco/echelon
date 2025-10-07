@@ -13,52 +13,15 @@ services:
     container_name: meeray-node
     depends_on:
       - mongo
-      - kafka
     env_file:
       - .env
     environment:
       - MONGO_URL=mongodb://mongo:27017
-      - USE_NOTIFICATION=true
-      - NOTIFICATIONS_PORT=6005
-      - KAFKA_BROKERS=kafka:9092
+      - USE_NOTIFICATION=false
     ports:
       - "3001:3001"
       - "6001:6001"
-      - "6005:6005"
     command: npm start
-
-  zookeeper:
-    image: confluentinc/cp-zookeeper:7.4.0
-    container_name: meeray-zookeeper
-    environment:
-      ZOOKEEPER_CLIENT_PORT: 2181
-      ZOOKEEPER_TICK_TIME: 2000
-    ports:
-      - "2181:2181"
-    restart: unless-stopped
-
-  kafka:
-    image: confluentinc/cp-kafka:7.4.0
-    container_name: meeray-kafka
-    depends_on:
-      - zookeeper
-    environment:
-      KAFKA_BROKER_ID: 1
-      KAFKA_ZOOKEEPER_CONNECT: zookeeper:2181
-      # internal listener for other containers
-      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,PLAINTEXT_HOST://0.0.0.0:29092"
-      # map listener names to security protocols so PLAINTEXT_HOST is valid
-      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "PLAINTEXT:PLAINTEXT,PLAINTEXT_HOST:PLAINTEXT"
-      # advertised listeners: metadata returned to clients
-      # Use localhost for the host-accessible listener so host clients connecting to localhost:29092
-      # receive a reachable address instead of host.docker.internal which may resolve to a non-routable IP.
-      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092,PLAINTEXT_HOST://localhost:29092"
-      KAFKA_INTER_BROKER_LISTENER_NAME: PLAINTEXT
-      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
-    ports:
-      - "9092:9092" # in-container access
-      - "29092:29092" # host access (use host.docker.internal:29092 on Windows)
-    restart: unless-stopped
 
 volumes:
   mongo-data:
