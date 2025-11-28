@@ -211,7 +211,7 @@ class BlockProcessor {
     }
 
     private async validateTransactions(block: Block, steemBlockData: SteemBlock): Promise<boolean> {
-        const { transactions: parsedSteemTxs } = await parseSteemTransactions(steemBlockData, block.steemBlockNum) as SteemBlockResult;
+        const { transactions: parsedSteemTxs } = await parseSteemTransactions(steemBlockData, block.steemBlockNum, true) as SteemBlockResult;
 
         // Filter for Steem-derived txs that are valid according to sidechain rules
         const validSteemTxs: typeof parsedSteemTxs = [];
