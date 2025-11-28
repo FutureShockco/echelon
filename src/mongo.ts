@@ -338,7 +338,7 @@ export const mongo = {
                 startBlock: 0,
                 totalRewards: toDbString(config.maxValue),
                 rewardsPerBlock: toDbString(farmReward),
-                minStakeAmount: toDbString('100000000'),
+                minStakeAmount: farms[idx].stakingToken === 'ECH' ? toDbString('100000000') : toDbString('1000'),
                 maxStakeAmount: toDbString('1000000000000000'),
                 totalStaked: toDbString('0'),
                 weight: w,
