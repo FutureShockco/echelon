@@ -1,8 +1,8 @@
 const config = {
     chainId: 'sidechain',
-    networkName: 'MeeRay Devnet',
+    networkName: 'Echelon Mainnet',
     nativeTokenSymbol: 'ECH',
-    nativeTokenName: 'MeeRay',
+    nativeTokenName: 'Echelon',
     nativeTokenPrecision: 8,
     originHash: 'e201950993be0e15b14ab19dccb165972ff0ba7ea162c5ad6eec9b5268bce468',
     burnAccountName: 'null',
@@ -43,7 +43,28 @@ const config = {
     txExpirationTime: 3600000,
     witnessShufflePrecision: 8,
     memoryBlocks: 1000,
-    randomBytesLength: 32
+    randomBytesLength: 32,
+    // limit which transactions are available
+    // key: transaction id (see transaction.js:TransactionType)
+    // value: null/0 (default): enabled, 1: disabled, 2: master-only
+    txLimits: {
+        33: 1, // NFT_ACCEPT_BID disabled
+        34: 1, // NFT_CLOSE_AUCTION disabled
+        35: 1, // NFT_BATCH_OPERATIONS disabled
+        36: 1, // LAUNCHPAD_UPDATE_STATUS disabled
+        37: 1, // LAUNCHPAD_FINALIZE_PRESALE disabled
+        38: 1, // LAUNCHPAD_SET_MAIN_TOKEN disabled
+        39: 1, // LAUNCHPAD_REFUND_PRESALE disabled
+        40: 1, // LAUNCHPAD_UPDATE_WHITELIST disabled
+        41: 1, // NFT_CANCEL_BID disabled
+        42: 1, // NFT_MAKE_OFFER disabled
+        43: 1, // NFT_ACCEPT_OFFER disabled
+        44: 1, // NFT_CANCEL_OFFER 
+        45:1 ,// LAUNCHPAD_CONFIGURE_PRESALE disabled
+        46:1 ,// LAUNCHPAD_CONFIGURE_TOKENOMICS disabled
+        47:1 ,// LAUNCHPAD_CONFIGURE_AIRDROP disabled
+        48:1 ,// LAUNCHPAD_UPDATE_METADATA disabled
+    }
 };
 
 // Block-number-based config history (hardforks)

@@ -239,7 +239,9 @@ const parseSteemTransactions = async (steemBlock: SteemBlock, blockNum: number):
                             ref: blockNum + ':' + opIndex,
                             hash: tx.transaction_id,
                         };
-                        txs.push(newTx);
+                        if (!config.txLimits[txType as keyof typeof config.txLimits] || config.txLimits[txType as keyof typeof config.txLimits] !== 1) {
+                            txs.push(newTx);
+                        }
                     } catch (error) {
                         logger.error(`Error processing transaction in block ${blockNum}, operation ${opIndex}:`, error);
                     }
