@@ -1152,7 +1152,7 @@ function formatAmount(amount: bigint, tokenSymbol?: string): string {
     if (tokenSymbol) {
         const decimals = getTokenDecimals(tokenSymbol);
         const divisor = Math.pow(10, decimals);
-        // For price, if the symbol is used for price display, force to use quote asset decimals (3 for TESTS)
+        // For price, if the symbol is used for price display, force to use quote asset decimals (3 for STEEM)
         // If you want to force fewer decimals for price, you can clamp or set a max here
         return (Number(amount) / divisor).toFixed(decimals);
     }

@@ -1,7 +1,7 @@
 const config = {
     chainId: 'sidechain',
     networkName: 'MeeRay Devnet',
-    nativeTokenSymbol: 'MRY',
+    nativeTokenSymbol: 'ECH',
     nativeTokenName: 'MeeRay',
     nativeTokenPrecision: 8,
     originHash: 'e201950993be0e15b14ab19dccb165972ff0ba7ea162c5ad6eec9b5268bce468',
@@ -12,20 +12,20 @@ const config = {
     masterPublicKey: 'e27B66QHwRLjnjxi5KAa9G7fLSDajtoB6CxuZ87oTdfS',
     blockTime: 3000,
     syncBlockTime: 1000,
-    witnessReward: '100000000', // 1 MRY
-    nativeFarmsReward: '100000000', // 1 MRY
+    witnessReward: '100000000', // 1 ECH
+    nativeFarmsReward: '100000000', // 1 ECH
     steemChainId: '0000000000000000000000000000000000000000000000000000000000000000',
-    steemStartBlock: process.env.NODE_ENV === 'development' ? 4096050 : 95762370,
+    steemStartBlock: process.env.NODE_ENV === 'development' ? 4096050 : 101244000,
     steemBlockDelay: 1,
     steemBlockMaxDelay: 6,
     b58Alphabet: '123456789ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz',
     tokenSymbolAllowedChars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890',
     tokenNameAllowedChars: 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789',
     tokenNameMaxLength: 50,
-    farmCreationFee: '10000000000', // 100 MRY
-    tokenCreationFee: '10000000000', // 100 MRY
-    nftCollectionCreationFee: '10000000000', // 100 MRY
-    launchPadCreationFee: '10000000000', // 100 MRY
+    farmCreationFee: '10000000000', // 100 ECH
+    tokenCreationFee: '10000000000', // 100 ECH
+    nftCollectionCreationFee: '10000000000', // 100 ECH
+    launchPadCreationFee: '10000000000', // 100 ECH
     swapAndTradeFee: 30, // 0.3% in basis points
     tokenSymbolMaxLength: 10,
     tokenSymbolMinLength: 3,

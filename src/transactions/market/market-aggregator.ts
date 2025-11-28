@@ -196,8 +196,8 @@ export class LiquidityAggregator {
         const isBuyingBase = source.tokenA === tradeData.tokenOut;
 
         // For orderbook quotes, we need to match against the opposite side
-        // If we're buying MRY (base), we need to find someone selling MRY (ask side)
-        // If we're selling MRY (base), we need to find someone buying MRY (bid side)
+        // If we're buying ECH (base), we need to find someone selling ECH (ask side)
+        // If we're selling ECH (base), we need to find someone buying ECH (bid side)
         const availableDepth = isBuyingBase ? source.askDepth! : source.bidDepth!;
         const price = isBuyingBase ? source.bestAsk! : source.bestBid!;
 
@@ -222,13 +222,13 @@ export class LiquidityAggregator {
         let amountOut: bigint;
         if (isBuyingBase) {
             // Buying base asset: amountOut = amountIn / price
-            // amountIn is in quote units (TESTS), price is quote per base (TESTS per MRY)
-            // So amountOut = amountIn / price (in base units - MRY)
+            // amountIn is in quote units (TESTS), price is quote per base (TESTS per ECH)
+            // So amountOut = amountIn / price (in base units - ECH)
             // Scale properly: amountOut = (amountIn * 10^baseDecimals) / price
             amountOut = (amountIn * toBigInt(10 ** baseDecimals)) / toBigInt(price);
         } else {
             // Selling base asset: amountOut = amountIn * price
-            // amountIn is in base units (MRY), price is quote per base (TESTS per MRY)
+            // amountIn is in base units (ECH), price is quote per base (TESTS per ECH)
             // So amountOut = amountIn * price (in quote units - TESTS)
             // Scale properly: amountOut = (amountIn * price) / 10^baseDecimals
             amountOut = (amountIn * toBigInt(price)) / toBigInt(10 ** baseDecimals);

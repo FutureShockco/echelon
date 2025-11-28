@@ -717,7 +717,7 @@ export async function executeOrderbookRoute(
             orderQuantity = (amountIn * scale) / toBigInt(orderPrice);
         } else {
             // For sell orders, quantity is the amount of base currency to sell
-            // amountIn is the amount of base token (MRY) the user wants to sell
+            // amountIn is the amount of base token (ECH) the user wants to sell
             orderQuantity = amountIn;
         }
 

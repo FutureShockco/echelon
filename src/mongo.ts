@@ -243,7 +243,9 @@ export const mongo = {
         };
         await currentDb.collection<TokenData>('tokens').insertOne(nativeTokenToStore);
         logger.info(`Native token ${config.nativeTokenSymbol} inserted.`);
-        setTokenDecimals('STEEM', 3);
+        
+        setTokenDecimals('ECH', 8);
+
         const nativeTokenCreationParamsSTEEM: TokenData = {
             symbol: 'STEEM',
             name: 'Steem',
@@ -256,6 +258,8 @@ export const mongo = {
             logoUrl: 'https://steem.com/images/steem-logo.png', // Placeholder URL
             websiteUrl: 'https://steem.com',
         };
+        setTokenDecimals('STEEM', 3);
+
         if (process.env.NODE_ENV === 'development') {
             nativeTokenCreationParamsSTEEM.symbol = 'TESTS';
             setTokenDecimals('TESTS', 3);
@@ -321,7 +325,7 @@ export const mongo = {
         // Create native farms programmatically so rewardsPerBlock is calculated from config.nativeFarmsReward and weights
         const nativeRewardPerBlock = toBigInt(config.nativeFarmsReward);
         const weights = [200, 100, 100];
-        const farms = [{ stakingToken: 'MRY', rewardToken: 'MRY' }, { stakingToken: 'TESTS', rewardToken: 'MRY' }, { stakingToken: 'TBD', rewardToken: 'MRY' }];
+        const farms = [{ stakingToken: 'ECH', rewardToken: 'ECH' }, { stakingToken: 'STEEM', rewardToken: 'ECH' }, { stakingToken: 'SBD', rewardToken: 'ECH' }];
         const totalWeight = weights.reduce((a, b) => a + b, 0);
         const nativeFarms: FarmData[] = weights.map((w, idx) => {
             const farmId = generateFarmId(farms[idx].stakingToken, farms[idx].rewardToken);

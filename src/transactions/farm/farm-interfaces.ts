@@ -32,7 +32,7 @@ export interface FarmData extends FarmCreateData {
     minStakeAmount: string | bigint; // Minimum amount that can be staked
     maxStakeAmount: string | bigint; // Maximum amount that can be staked per user
     weight: number; // Farm weight for native reward distribution
-    isNativeFarm: boolean; // True if this farm distributes native MRY rewards from the global pool
+    isNativeFarm: boolean; // True if this farm distributes native ECH rewards from the global pool
     status: 'active' | 'ended' | 'cancelled' | 'paused';
     createdAt: string;
     lastUpdatedBlock?: number;
