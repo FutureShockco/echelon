@@ -43,7 +43,7 @@ export interface ParsedTransaction {
 }
 
 // eslint-disable-next-line max-lines-per-function, complexity
-const parseSteemTransactions = async (steemBlock: SteemBlock, blockNum: number, isValidationMode = false): Promise<SteemBlockResult> => {
+const parseSteemTransactions = async (steemBlock: SteemBlock, blockNum: number): Promise<SteemBlockResult> => {
     const txs: ParsedTransaction[] = [];
     let opIndex = 0;
     for (const tx of steemBlock.transactions) {
@@ -263,16 +263,11 @@ const parseSteemTransactions = async (steemBlock: SteemBlock, blockNum: number, 
                         symbol: tokenSymbol,
                         to: from as string,
                         amount: parseTokenAmount(amountValue, tokenSymbol).toString(),
+                        steemTxId: tx.transaction_id,
                     };
 
-                    // During validation mode, bridge nodes check if they missed processing a deposit
-                    // During normal processing, skip to avoid double-processing
-                    if (isValidationMode) {
-                        await steemBridge.enqueueDeposit(mintData);
-                        logger.info(`[steemParser] Bridge deposit detected during validation: ${amountValue} ${tokenSymbol} from ${from}, queued for broadcast`);
-                    } else {
-                        logger.debug(`[steemParser] Bridge deposit detected but skipped (already processed during initial block processing): ${amountValue} ${tokenSymbol} from ${from}`);
-                    }
+                    await steemBridge.enqueueDeposit(mintData);
+                    logger.info(`[steemParser] Bridge deposit detected: ${amountValue} ${tokenSymbol} from ${from}, queued for broadcast`);
                 }
             } catch (error) {
                 logger.error(`Error processing operation in block ${blockNum}, operation ${opIndex}:`, error);

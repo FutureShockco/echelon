@@ -21,6 +21,7 @@ interface WithdrawDepositData {
     createdAt: string;
     updatedAt: string;
     txId: string;
+    steemTxId?: string;
 }
 
 async function transfer(to: string, amount: string, symbol: string, memo: string) {
@@ -96,8 +97,19 @@ export async function enqueueWithdraw(to: string, amount: string, symbol: string
     await db.collection<WithdrawDepositData>('withdrawals').insertOne(doc as any);
 }
 
-export async function enqueueDeposit(mintData: { symbol: string; to: string; amount: string }): Promise<void> {
+export async function enqueueDeposit(mintData: { symbol: string; to: string; amount: string; steemTxId: string }): Promise<void> {
     const db = mongo.getDb();
+    
+    // Check if this deposit (by Steem transaction ID) was already enqueued
+    const existingDeposit = await db.collection<WithdrawDepositData>('deposits').findOne({
+        steemTxId: mintData.steemTxId
+    });
+    
+    if (existingDeposit) {
+        logger.debug(`[steemBridge] Deposit already enqueued (Steem TX: ${mintData.steemTxId}): ${mintData.amount} ${mintData.symbol} to ${mintData.to}`);
+        return;
+    }
+    
     const now = new Date().toISOString();
     const doc: WithdrawDepositData = {
         to: mintData.to,
@@ -108,8 +120,10 @@ export async function enqueueDeposit(mintData: { symbol: string; to: string; amo
         createdAt: now,
         updatedAt: now,
         txId: '',
+        steemTxId: mintData.steemTxId,
     };
     await db.collection<WithdrawDepositData>('deposits').insertOne(doc as any);
+    logger.debug(`[steemBridge] New deposit enqueued (Steem TX: ${mintData.steemTxId}): ${mintData.amount} ${mintData.symbol} to ${mintData.to}`);
 }
 
 let workerStarted = false;
