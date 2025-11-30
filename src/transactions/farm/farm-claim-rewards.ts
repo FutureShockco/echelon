@@ -40,10 +40,15 @@ export async function validateTx(data: FarmClaimRewardsData, sender: string): Pr
         const rewardsPerBlock = toBigInt(farm.rewardsPerBlock || '0');
         const totalStaked = toBigInt(farm.totalStaked || '0');
         const stakedAmount = toBigInt(userFarmPos.stakedAmount || '0');
-        if (totalStaked === toBigInt(0) || stakedAmount === toBigInt(0)) {
-            logger.warn(`[farm-claim-rewards] No stake or totalStaked zero for farm ${data.farmId}.`);
-            return { valid: false, error: 'no stake or totalStaked zero' };
+        const existingPending = toBigInt(userFarmPos.pendingRewards || '0');
+        
+        // Users should be able to claim pending rewards even if they have no current stake
+        // Only check if there are any rewards to claim (either pending or newly accrued)
+        if (totalStaked === toBigInt(0) && existingPending === 0n) {
+            logger.warn(`[farm-claim-rewards] No rewards available - totalStaked is zero and no pending rewards for farm ${data.farmId}.`);
+            return { valid: false, error: 'no rewards available' };
         }
+        
         const token = await cache.findOnePromise('tokens', { symbol: farm.rewardToken });
         if (!token) {
             logger.warn(`[farm-claim-rewards] Reward token ${farm.rewardToken} for farm ${data.farmId} not found.`);
@@ -53,10 +58,14 @@ export async function validateTx(data: FarmClaimRewardsData, sender: string): Pr
         // Compute newly-accrued rewards since lastHarvestBlock and include any already stored pending rewards
         const lastHarvestBlock = Number(userFarmPos.lastHarvestBlock ?? farmStartBlock);
         const blocksElapsed = BigInt(Math.max(0, currentBlockNum - lastHarvestBlock));
-        const farmRewardsGenerated = rewardsPerBlock * blocksElapsed;
-        const newlyComputed = (farmRewardsGenerated * stakedAmount) / totalStaked;
+        
+        // Only calculate new rewards if user still has stake
+        let newlyComputed = 0n;
+        if (stakedAmount > 0n && totalStaked > 0n) {
+            const farmRewardsGenerated = rewardsPerBlock * blocksElapsed;
+            newlyComputed = (farmRewardsGenerated * stakedAmount) / totalStaked;
+        }
 
-        const existingPending = toBigInt(userFarmPos.pendingRewards || '0');
         const rewardToken = await cache.findOnePromise('tokens', { symbol: farm.rewardToken }) as any;
 
         // Determine how much of newlyComputed can actually be claimed, given remaining supply/balance after accounting for existingPending
@@ -105,8 +114,13 @@ export async function processTx(data: FarmClaimRewardsData, sender: string, id: 
         const stakedAmount = toBigInt(userFarmPos.stakedAmount || '0');
         const lastHarvestBlock = Number(userFarmPos.lastHarvestBlock ?? farmStartBlock);
         const blocksElapsed = BigInt(Math.max(0, currentBlockNum - lastHarvestBlock));
-        const farmRewardsGenerated = rewardsPerBlock * blocksElapsed;
-        const newlyComputed = (farmRewardsGenerated * stakedAmount) / (totalStaked === 0n ? 1n : totalStaked);
+        
+        // Only calculate new rewards if user still has stake
+        let newlyComputed = 0n;
+        if (stakedAmount > 0n && totalStaked > 0n) {
+            const farmRewardsGenerated = rewardsPerBlock * blocksElapsed;
+            newlyComputed = (farmRewardsGenerated * stakedAmount) / totalStaked;
+        }
 
         const existingPending = toBigInt(userFarmPos.pendingRewards || '0');
         const rewardToken = await cache.findOnePromise('tokens', { symbol: farm.rewardToken }) as any;
