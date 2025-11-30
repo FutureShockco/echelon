@@ -265,11 +265,13 @@ const parseSteemTransactions = async (steemBlock: SteemBlock, blockNum: number, 
                         amount: parseTokenAmount(amountValue, tokenSymbol).toString(),
                     };
 
-                    if (!isValidationMode) {
+                    // During validation mode, bridge nodes check if they missed processing a deposit
+                    // During normal processing, skip to avoid double-processing
+                    if (isValidationMode) {
                         await steemBridge.enqueueDeposit(mintData);
-                        logger.info(`[steemParser] Bridge deposit detected: ${amountValue} ${tokenSymbol} from ${from}, queued for broadcast`);
+                        logger.info(`[steemParser] Bridge deposit detected during validation: ${amountValue} ${tokenSymbol} from ${from}, queued for broadcast`);
                     } else {
-                        logger.debug(`[steemParser] Bridge deposit detected but skipped (validation mode): ${amountValue} ${tokenSymbol} from ${from}`);
+                        logger.debug(`[steemParser] Bridge deposit detected but skipped (already processed during initial block processing): ${amountValue} ${tokenSymbol} from ${from}`);
                     }
                 }
             } catch (error) {
