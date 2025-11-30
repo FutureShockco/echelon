@@ -1,7 +1,7 @@
 import cache from '../../cache.js';
 import logger from '../../logger.js';
 import chain from '../../chain.js';
-import { getAccount } from '../../utils/account.js';
+import { adjustUserBalance, getAccount } from '../../utils/account.js';
 import { toBigInt, toDbString } from '../../utils/bigint.js';
 import { logTransactionEvent } from '../../utils/event-logger.js';
 import validate from '../../validation/index.js';
@@ -162,15 +162,12 @@ export async function processTx(data: FarmUnstakeData, sender: string, id: strin
                 });
             }
         } else {
-            // Non-LP staking: credit user's account balance for the staking token symbol
-            await cache.updateOnePromise(
-                'accounts',
-                { name: sender },
-                {
-                    $inc: { [`balances.${stakingSymbol}`]: tokenAmount.toString() },
-                    $set: { lastUpdatedAt: new Date().toISOString() },
-                }
-            );
+            // Non-LP staking: credit user's account balance for the staking token symbol using adjustUserBalance
+            const creditSuccess = await adjustUserBalance(sender, stakingSymbol, tokenAmount);
+            if (!creditSuccess) {
+                logger.error(`[farm-unstake] Failed to credit ${tokenAmount} ${stakingSymbol} to ${sender}.`);
+                return { valid: false, error: 'failed to credit user' };
+            }
         }
 
         logger.debug(`[farm-unstake] Staker ${sender} unstaked ${data.tokenAmount} ${stakingSymbol} from farm ${data.farmId}.`);
