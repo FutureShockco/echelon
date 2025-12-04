@@ -1,10 +1,10 @@
-# Meeray Blockchain Node
+# Echelon Blockchain Node
 
 A modular sidechain for Steem, written in TypeScript (ESM), using MongoDB for storage, Kafka for notifications, WebSocket for P2P networking, and Express for HTTP APIs.
 
 ## Sidechain Architecture
 
-Meeray operates as a sidechain for Steem with these key characteristics:
+Echelon operates as a sidechain for Steem with these key characteristics:
 - Processes only transactions that originate from Steem custom_json operations with our specific sidechain ID
 - Implements block recovery/replay mechanisms to allow nodes to synchronize with peers
 - Supports special sync mode to rapidly catch up with Steem blockchain when behind
@@ -149,7 +149,7 @@ pm2 start scripts/start.sh --interpreter bash --name "echelon"
 
 ## Docker Setup (Alternative)
 
-The easiest way to run a Meeray node and MongoDB is with Docker Compose. This will automatically build the app, set up MongoDB, and handle environment variables.
+The easiest way to run a Echelon node and MongoDB is with Docker Compose. This will automatically build the app, set up MongoDB, and handle environment variables.
 
 ### Prerequisites
 - [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed
@@ -166,7 +166,7 @@ The easiest way to run a Meeray node and MongoDB is with Docker Compose. This wi
     docker-compose build --no-cache
     docker-compose up
     ```
-    This will start both the Meeray node and MongoDB. The node will connect to MongoDB using the correct Docker network.
+    This will start both the Echelon node and MongoDB. The node will connect to MongoDB using the correct Docker network.
 
 4. (Optional) Restore the latest backup:
     - Download the backup file:
