@@ -110,8 +110,8 @@ Paste the following content into the file:
 ### Setup
 1. Clone the repository
 ```bash
-git clone https://github.com/FutureShockco/meeray.git
-cd meeray
+git clone https://github.com/FutureShockco/echelon.git
+cd echelon
 ```
 
 2. Install dependencies
@@ -123,6 +123,11 @@ npm install
 ```bash
 cp .env.example .env
 # Edit .env with your settings (you must obtain a key pair first using /witnesses/generate-keypair endpoint, this is only for active witnesses)
+```
+
+3a. (Optionnal) Setup your bridge
+```bash
+# Create your STEEM and SBD wrapped tokens on the sidechain then edit .env with your settings and the steem account informations (which should be the issuer of the wrapped tokens), so when a STEEM or SBD deposit are made to this particular account it can mint the wrapped tokens.
 ```
 
 4. Start MongoDB
@@ -137,7 +142,7 @@ node start.js
 
 For production:
 ```bash
-pm2 start scripts/start.sh --interpreter bash --name "meeray"
+pm2 start scripts/start.sh --interpreter bash --name "echelon"
 ```
 
 ---
