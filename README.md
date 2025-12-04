@@ -121,8 +121,8 @@ npm install
 
 3. Configure your node
 ```bash
-cp config.example.js config.js
-# Edit config.js with your settings
+cp .env.example .env
+# Edit .env with your settings (you must obtain a key pair first using /witnesses/generate-keypair endpoint, this is only for active witnesses)
 ```
 
 4. Start MongoDB
@@ -152,8 +152,8 @@ The easiest way to run a Meeray node and MongoDB is with Docker Compose. This wi
 ### Quick Start
 1. Clone the repository:
     ```bash
-    git clone https://github.com/FutureShockco/meeray.git
-    cd meeray
+    git clone https://github.com/FutureShockco/echelon.git
+    cd echelon
     ```
 2. (Optional) Edit the `.env` file to customize your node settings.
 3. Build and start the containers:
