@@ -222,7 +222,7 @@ function startRebuild(startBlock: number) {
 }
 
 async function startDaemon(cfg: any) {
-    const blkScheduleStart = chain.getLatestBlock()._id - (chain.getLatestBlock()._id % config.witnesses);
+    const blkScheduleStart = chain.getLatestBlock()._id - (chain.getLatestBlock()._id % config.read(chain.getLatestBlock()._id).witnesses);
     if (blocks.isOpen) chain.schedule = witnessesModule.witnessSchedule(blocks.read(blkScheduleStart));
     else {
         const block = await mongo.getDb().collection<Block>('blocks').findOne({ _id: blkScheduleStart });

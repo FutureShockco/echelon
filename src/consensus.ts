@@ -155,7 +155,7 @@ export const consensus: Consensus = {
             consensus.witnessLastSeen = new Map<string, number>();
         }
 
-        const currentWitness = chain.schedule.shuffle[(blockNum - 1) % config.witnesses].name;
+        const currentWitness = chain.schedule.shuffle[(blockNum - 1) % config.read(blockNum).witnesses].name;
         const currentWitnessKey = consensus.getActiveWitnessKey(currentWitness);
         logger.debug(`[DEBUG-ACTIVE-WITNESSES] Current witness for block ${blockNum}: ${currentWitness}, hasKey: ${!!currentWitnessKey}`);
 
@@ -174,7 +174,7 @@ export const consensus: Consensus = {
             }
         }
 
-        for (let i = 1; i < 2 * config.witnesses; i++) {
+        for (let i = 1; i < 2 * config.read(blockNum).witnesses; i++) {
             const recentBlock = chain.recentBlocks[chain.recentBlocks.length - i];
             if (recentBlock) {
                 const witnessKey = consensus.getActiveWitnessKey(recentBlock.witness);

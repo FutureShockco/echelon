@@ -176,7 +176,7 @@ export class ConnectionManager {
             SocketManager.setSockets(this.state.sockets);
             const currentNodeIsWitness = (global as any).consensus?.isActive() || false;
             const currentPeerCount = this.state.sockets.filter(s => s.node_status).length + (currentNodeIsWitness ? 1 : 0);
-            const totalWitnesses = config.witnesses || 5;
+            const totalWitnesses = config.read(chain.getLatestBlock()?._id || 0).witnesses || 5;
             const minPeersForConsensus = Math.ceil(totalWitnesses * 0.6);
 
             logger.debug(`Peer disconnected, ${this.state.sockets.length} total peers remaining (${currentPeerCount} with node status)`);

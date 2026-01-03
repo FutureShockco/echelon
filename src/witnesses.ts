@@ -32,7 +32,7 @@ export const witnessesModule = {
             witnesses.splice(i, 1);
         }
         let y = 0;
-        while (shuffledWitnesses.length < config.witnesses) {
+        while (shuffledWitnesses.length < config.read(block._id).witnesses) {
             shuffledWitnesses.push(shuffledWitnesses[y]);
             y++;
         }

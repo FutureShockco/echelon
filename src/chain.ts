@@ -159,7 +159,7 @@ export const chain = {
                             const networkMedianEntryThreshold = config.steemBlockMaxDelay || Math.max(10, (config.steemBlockDelay || 10) * 1.5);
                             const witnessLagThreshold = config.steemBlockMaxDelay || config.steemBlockDelay || 10;
 
-                            const activeWitnessAccounts = chain.schedule?.active_witnesses || config.witnesses || [];
+                            const activeWitnessAccounts = chain.schedule?.active_witnesses || config.read(block._id).witnesses || [];
                             const minWitnessesLaggingForEntryFactor =
                                 activeWitnessAccounts.length > 0 ? Math.max(1, Math.ceil(activeWitnessAccounts.length * 0.3)) : 0;
 
@@ -270,7 +270,7 @@ export const chain = {
 
                     cache.processRebuildOps(
                         () => {
-                            if (blockToRebuild._id % config.witnesses === 0) chain.schedule = witnessesModule.witnessSchedule(blockToRebuild);
+                            if (blockToRebuild._id % config.read(blockToRebuild._id).witnesses === 0) chain.schedule = witnessesModule.witnessSchedule(blockToRebuild);
                             chain.recentBlocks.push(blockToRebuild);
                             chain.output(blockToRebuild, true);
 

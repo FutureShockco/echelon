@@ -54,16 +54,14 @@ export const mining = {
 
             loopOne: for (let i = 0; i < mempool.length; i++) {
                 if (txs.length === config.maxTxPerBlock) break;
-                
                 // Check if this transaction is already included
                 for (let y = 0; y < txs.length; y++) {
                     const mempoolRef = (mempool[i] as any).ref;
                     const txsRef = (txs[y] as any).ref;
-                    
                     // If both have refs (Steem-derived), compare by ref to allow multiple ops from same tx
                     if (mempoolRef && txsRef) {
                         if (mempoolRef === txsRef) continue loopOne;
-                    } 
+                    }
                     // For non-Steem txs (no ref), don't allow multiple txs from same sender in same block
                     else if (!mempoolRef && !txsRef && txs[y].sender === mempool[i].sender) {
                         continue loopOne;
@@ -74,16 +72,14 @@ export const mining = {
 
             loopTwo: for (let i = 0; i < mempool.length; i++) {
                 if (txs.length === config.maxTxPerBlock) break;
-                
                 // Check if already included by ref (or hash for non-Steem txs)
                 for (let y = 0; y < txs.length; y++) {
                     const mempoolRef = (mempool[i] as any).ref;
                     const txsRef = (txs[y] as any).ref;
-                    
                     // If both have refs, compare by ref only (not hash, since one hash can have multiple ops)
                     if (mempoolRef && txsRef) {
                         if (mempoolRef === txsRef) continue loopTwo;
-                    } 
+                    }
                     // For non-Steem txs (no ref), compare by hash
                     else if (!mempoolRef && !txsRef && txs[y].hash === mempool[i].hash) {
                         continue loopTwo;
@@ -226,7 +222,7 @@ export const mining = {
         const connectedPeerCount = p2p.sockets.filter(s => s.node_status).length;
         const currentNodeIsWitness = consensus.isActive();
         const currentPeerCount = connectedPeerCount + (currentNodeIsWitness ? 1 : 0);
-        const totalWitnesses = config.witnesses || 5;
+        const totalWitnesses = config.read(chain.getLatestBlock()?._id || 0).witnesses || 5;
         const minPeersForConsensus = Math.ceil(totalWitnesses * 0.66);
         // If we're in sync mode but consensus is not met, exit sync mode
         if (steem.isInSyncMode() && !consensus.getConsensus().consensus_is_met) {

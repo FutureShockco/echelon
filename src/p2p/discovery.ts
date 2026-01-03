@@ -19,7 +19,7 @@ export class PeerDiscovery {
     requestPeerLists(): void {
         const connectedPeers = SocketManager.getSocketsWithStatus();
         const currentPeerCount = connectedPeers.length;
-        const totalWitnesses = config.witnesses || 5;
+        const totalWitnesses = config.read(chain.getLatestBlock()?._id || 0).witnesses || 5;
         const minPeersForConsensus = Math.ceil(totalWitnesses * 0.6);
 
         if (connectedPeers.length === 0) {
@@ -42,7 +42,7 @@ export class PeerDiscovery {
 
     async discoveryWorker(isInit: boolean = false): Promise<void> {
         const currentPeerCount = SocketManager.getSocketsWithStatus().length;
-        const totalWitnesses = config.witnesses || 5;
+        const totalWitnesses = config.read(chain.getLatestBlock()?._id || 0).witnesses || 5;
 
         // Calculate consensus requirements
         const minPeersForConsensus = Math.ceil(totalWitnesses * 0.6);
@@ -146,7 +146,7 @@ export class PeerDiscovery {
         // Include current node in consensus count if it's an active witness
         const currentNodeIsWitness = consensus.isActive();
         const currentPeerCount = connectedPeerCount + (currentNodeIsWitness ? 1 : 0);
-        const totalWitnesses = config.witnesses || 5;
+        const totalWitnesses = config.read(chain.getLatestBlock()?._id || 0).witnesses || 5;
         const minPeersForConsensus = Math.ceil(totalWitnesses * 0.6);
         const optimalPeerCount = Math.min(totalWitnesses - 1, P2P_RUNTIME_CONFIG.MAX_PEERS);
 
