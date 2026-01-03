@@ -74,8 +74,8 @@ const history: Record<number, Partial<typeof config>> = {
         consensusRounds: 2,
         maxTxPerBlock: 1000,
     },
-    101254779: {
-        witnesses: 1,
+    797420: {
+        witnesses: 2,
     },
 };
 
